@@ -9,7 +9,7 @@ from scipy import optimize as opt
 from plot_circles import plot_circles
 
 
-def opt_func_dec(x_list, r_list):
+def opt_func_dec(x_list, r_list, lat_id_list):
     # x_list: a vector of x's
     # x represents [x y]' : a vector of positions
     # r_list: a vector of r's
@@ -36,7 +36,7 @@ def opt_func_dec(x_list, r_list):
         grad_j = np.zeros_like(p)
         for x0, r0 in zip(x_array_list, r_list):
             d_sum = np.linalg.norm(p-x0)
-            grad_j += 2*(d_sum-r0) * (1/2)*d_sum**(-1/2) * 2*(p-x0)
+            grad_j += 2*(d_sum-r0) * (1/2)*d_sum**(-1) * 2*(p-x0)
         # row_multiple = 2*(d_sum - r) * 1/2*d_sum**(-1/2)
         return grad_j
 
@@ -45,17 +45,25 @@ def opt_func_dec(x_list, r_list):
 
 def single_multilateration():
     circles = [
-        [[3, 4], 1.2],
-        [[3, 7], 3],
-        [[5, 4], 1],
-        [[0, 0], 5.66],
+        [[3, 4], 1.2, None],
+        [[3, 7], 3, None],
+        [[5, 4], 1, None],
+        [[0, 0], 5.66, None],
     ]
 
     circles = [
-        [[4, 4], 2],
-        [[4.5, 4], 1.5],
+        [[4, 4], 2, None],
+        [[4.5, 4], 1.5, None],
+    ]
+
+    circles = [
+        [[28, 4], 1.5, None],
+        [[26, 3], 2, None],
+        [[25.77, 5.5], 2.755, None],
     ]
     # print(zip(*circles))
+    xlim = (0, 35)
+    ylim = (0, 35)
 
     loss_func, grad_j = opt_func_dec(*zip(*circles))
     print(loss_func(np.array([0, 0]).T))
@@ -64,22 +72,22 @@ def single_multilateration():
     p0_example = np.array([2, 2]).T
     min_fun_vals = {
         'fun': sys.maxsize,
-        'x': None
+        'p': None
     }
     iters = 12
 
     for _ in range(iters):
         # p0 = np.array([7, 7]).T
-        p0 = np.random.uniform(0, 10, p0_example.shape)
+        p0 = np.random.uniform(0, 30, p0_example.shape)
         p = opt.minimize(loss_func, p0, jac=grad_j, method='SLSQP', options=options)
         # print(p)
         print(p.fun, p.x)
         if p.fun < min_fun_vals['fun']:
             min_fun_vals['fun'] = p.fun
-            min_fun_vals['x'] = p.x
+            min_fun_vals['p'] = p.x
 
-    plot_circles(circles, min_fun_vals)
+    plot_circles(circles, [min_fun_vals,], xlim=xlim, ylim=ylim, clear_dir_on_new=True)
 
 
-
-single_multilateration()
+if __name__ == '__main__':
+    single_multilateration()

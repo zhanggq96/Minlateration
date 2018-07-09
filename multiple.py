@@ -13,6 +13,9 @@ from copy import deepcopy
 def single_loss(p, x, r):
     return np.abs(np.linalg.norm(p-x) - r)
 
+def single_loss_ord(p, x, r, norm_ord=2):
+    return np.abs(np.linalg.norm(p-x, ord=norm_ord) - r) ** norm_ord
+
 def opt_func_dec(x_list, r_list, lat_id_list):
     # x_list: a vector of x's
     # x represents [x y]' : a vector of positions
@@ -27,6 +30,12 @@ def opt_func_dec(x_list, r_list, lat_id_list):
         x_array_list.append(np.array([x, y]).T)
     print(x_array_list)
 
+    def loss_func_ord(p, norm_ord=2):
+        l = np.sum(
+            [single_loss_ord(p, x, r, norm_ord=norm_ord) for x, r in zip(x_array_list, r_list)]
+        )
+
+        return l
     # https://stackoverflow.com/questions/4582521/python-creating-dynamic-functions
     def loss_func(p):
         # | ||p-x}| - r |^2
@@ -43,7 +52,7 @@ def opt_func_dec(x_list, r_list, lat_id_list):
             grad_j += 2*(d-ri) * (1/2)*(1/d) * 2*(p-xi)
         return grad_j
 
-    return loss_func, jacobian
+    return loss_func_ord, loss_func, jacobian
 
 
 def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
@@ -66,12 +75,12 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
     p0_example = np.array([2, 2]).T
     # print(loss_func(np.array([0, 0]).T))
 
-    def get_lims(data):
+    def get_lims(circles):
         max_x = xlim[1]
         min_x = xlim[0]
         max_y = ylim[1]
         min_y = ylim[0]
-        for (x, y), r, lat_cluster_id in data:
+        for (x, y), r, lat_cluster_id in circles:
             max_x = max(x + r, max_x)
             min_x = min(x - r, min_x)
             max_y = max(y + r, max_y)
@@ -79,18 +88,19 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
 
         return (min_x, max_x), (min_y, max_y)
 
-    def multilat(data, use_local_lims=False):
+    def multilat(circles, use_local_lims=False):
 
-        loss_func, grad_j = opt_func_dec(*zip(*data))
+        loss_func_ord, loss_func, grad_j = opt_func_dec(*zip(*circles))
 
         min_fun_vals = {
             'loss': sys.maxsize,
-            'p': None
+            'p': None,
+            'circles': deepcopy(circles)
         }
 
         # Get coordinate limits of the cluster's data
         if use_local_lims:
-            cluster_xlim, cluster_ylim = get_lims(data)
+            cluster_xlim, cluster_ylim = get_lims(circles)
         else:
             cluster_xlim, cluster_ylim = xlim, ylim
 
@@ -179,6 +189,34 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
 
     print(circles_copy)
 
+    # --- Does not work well ---
+    """
+    # Reduced-radius corrections
+    for min_fun_vals in best_fun_vals_list:
+        if len(min_fun_vals['circles']) == 3:
+            # Make a copy of the circles, then reduce the radii of the copies
+            circles = deepcopy(min_fun_vals['circles'])
+            circles = [[[x, y], r/1.25, lat_cluster_id] for (x, y), r, lat_cluster_id in circles]
+
+            # Get multilateration results, as well as the loss function.
+            # In particular the circle center is of importance.
+            reduced_radius_fun_vals = multilat(circles)
+            p_from_reduced = reduced_radius_fun_vals['p']
+            p_original = min_fun_vals['p']
+
+            # get n-norm loss function with respect to original circles
+            loss_func_ord, _, _ = opt_func_dec(*zip(*min_fun_vals['circles']))
+
+            # if the n-norm of lat cluster center and reduced radii **applied
+            # to the original circles** is better then the n-norm of the
+            # lat cluster center original radii applied to original citcle centers,
+            # use this new p_from_reduced
+            if loss_func_ord(p_from_reduced, norm_ord=16) < loss_func_ord(p_original, norm_ord=16):
+                min_fun_vals['p'] = p_from_reduced
+            # else, min_fun_vals['p'] = p_original (which have not changed)
+
+    """
+
     return best_fun_vals_list
 
 
@@ -205,6 +243,16 @@ if __name__ == '__main__':
         [[19, 11], 1.5, None],
         [[20, 14], 2, None],
     ]
+
+    # circles_orig = [
+    #     [[3, 4], 1.2, None],
+    #     [[3, 7], 3, None],
+    #     [[5, 4], 1, None],
+    #     [[0, 0], 5.66, None],
+    #
+    #     [[8, 6], 1, None],
+    #     [[7.5, 6], 1.5, None],
+    # ]
 
     num_lat_clusters = 5
     for i, circle in enumerate(circles_orig):

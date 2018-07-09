@@ -49,21 +49,25 @@ def single_multilateration():
         [[3, 7], 3, None],
         [[5, 4], 1, None],
         [[0, 0], 5.66, None],
+
+        [[8, 6], 1, None],
+        [[7.5, 6], 1.5, None],
     ]
 
-    circles = [
-        [[4, 4], 2, None],
-        [[4.5, 4], 1.5, None],
-    ]
-
-    circles = [
-        [[28, 4], 1.5, None],
-        [[26, 3], 2, None],
-        [[25.77, 5.5], 2.755, None],
-    ]
+    # circles = [
+    #     [[4, 4], 2, None],
+    #     [[4.5, 4], 1.5, None],
+    # ]
+    #
+    # circles = [
+    #     [[28, 4], 1.5, None],
+    #     [[26, 3], 2, None],
+    #     [[25.77, 5.5], 2.755, None],
+    # ]
     # print(zip(*circles))
-    xlim = (0, 35)
-    ylim = (0, 35)
+    M = 20
+    xlim = (0, M)
+    ylim = (0, M)
 
     loss_func, grad_j = opt_func_dec(*zip(*circles))
     print(loss_func(np.array([0, 0]).T))
@@ -78,7 +82,7 @@ def single_multilateration():
 
     for _ in range(iters):
         # p0 = np.array([7, 7]).T
-        p0 = np.random.uniform(0, 30, p0_example.shape)
+        p0 = np.random.uniform(0, M, p0_example.shape)
         p = opt.minimize(loss_func, p0, jac=grad_j, method='SLSQP', options=options)
         # print(p)
         print(p.fun, p.x)
@@ -87,6 +91,8 @@ def single_multilateration():
             min_fun_vals['p'] = p.x
 
     plot_circles(circles, [min_fun_vals,], xlim=xlim, ylim=ylim, clear_dir_on_new=True)
+
+
 
 
 if __name__ == '__main__':

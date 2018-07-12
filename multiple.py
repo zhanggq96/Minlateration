@@ -39,8 +39,8 @@ def opt_func_dec(x_list, r_list, lat_id_list):
     # https://stackoverflow.com/questions/4582521/python-creating-dynamic-functions
     def loss_func(p):
         # | ||p-x}| - r |^2
-        l = np.sum(
-            [single_loss(p, x, r) for x, r in zip(x_array_list, r_list)]
+        l = sum(
+            (single_loss(p, x, r) for x, r in zip(x_array_list, r_list))
         )
 
         return l
@@ -75,11 +75,11 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
     p0_example = np.array([2, 2]).T
     # print(loss_func(np.array([0, 0]).T))
 
-    def get_lims(circles):
-        max_x = xlim[1]
-        min_x = xlim[0]
-        max_y = ylim[1]
-        min_y = ylim[0]
+    def get_local_lims(circles):
+        max_x = -sys.maxsize
+        min_x = +sys.maxsize
+        max_y = -sys.maxsize
+        min_y = +sys.maxsize
         for (x, y), r, lat_cluster_id in circles:
             max_x = max(x + r, max_x)
             min_x = min(x - r, min_x)
@@ -100,7 +100,7 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
 
         # Get coordinate limits of the cluster's data
         if use_local_lims:
-            cluster_xlim, cluster_ylim = get_lims(circles)
+            cluster_xlim, cluster_ylim = get_local_lims(circles)
         else:
             cluster_xlim, cluster_ylim = xlim, ylim
 
@@ -121,7 +121,7 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
         # print(min_fun_vals)
         return min_fun_vals
 
-    def argmin(circle, min_fun_vals):
+    def argmin_p(circle, min_fun_vals):
         min_val = sys.maxsize
         second_min_lat_cluster = sys.maxsize
         min_lat_cluster = None
@@ -137,11 +137,28 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
 
         return min_lat_cluster, second_min_lat_cluster
 
-    def reassign(circles, min_fun_vals, epsilon=0.25):
+    def argmax_x(min_fun_val, circles):
+        max_val = -sys.maxsize
+        max_delocalized_circle = None
+        max_delocalized_circle_index = None
+        p = min_fun_val['p']
+
+        for i, ((x, y), r, lat_cluster_id) in enumerate(circles):
+            # confusing notation :(
+            x = np.array([x, y]).T
+            loss = single_loss(p, x, r)
+            if loss > max_val:
+                max_val = loss
+                max_delocalized_circle = circles[i]
+                max_delocalized_circle_index = i
+
+        return max_delocalized_circle, max_delocalized_circle_index
+
+    def reassign_circle_clusters(circles, min_fun_vals, epsilon=0.25):
 
         for i, ((x, y), r, lat_cluster_id) in enumerate(circles):
             # second_min_lat_cluster unused - might be useful later for prob. epsilon swap
-            min_lat_cluster, _ = argmin(circles[i], min_fun_vals)
+            min_lat_cluster, _ = argmin_p(circles[i], min_fun_vals)
             circles[i][2] = min_lat_cluster
 
         return +1
@@ -182,7 +199,7 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
         # circles_list: list of lateration clusters with circles_copy in them
         print('[multiple_multilateration] min_fun_vals_list', min_fun_vals_list)
         plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim, iter=i, clear_dir_on_new=False)
-        reassign(circles_copy, min_fun_vals_list)
+        reassign_circle_clusters(circles_copy, min_fun_vals_list)
 
     # print(circles_copy)
     # print(min_fun_vals_list)
@@ -235,7 +252,8 @@ if __name__ == '__main__':
 
         [[28, 4], 1.5, None],
         [[26, 3], 2, None],
-        [[25.77, 5.5], 2.755, None],
+        [[25.77, 6.8], 2.7, None],
+        # [[25.77, 5.5], 2.755, None],
 
         [[3, 3], 1.5, None],
         [[4.5, 3.5], 2, None],
@@ -245,21 +263,32 @@ if __name__ == '__main__':
     ]
 
     # circles_orig = [
-    #     [[3, 4], 1.2, None],
-    #     [[3, 7], 3, None],
-    #     [[5, 4], 1, None],
-    #     [[0, 0], 5.66, None],
-    #
-    #     [[8, 6], 1, None],
-    #     [[7.5, 6], 1.5, None],
+    #     [[15, 15], 6.5, None],
+    #     [[12, 15], 2, None],
+    #     [[17, 15], 3, None],
+    #     [[24, 17], 3.5, None],
+
+    #     # [[8, 6], 1, None],
+    #     # [[7.5, 6], 1.5, None],
     # ]
 
-    num_lat_clusters = 5
+    circles_orig = [
+        [[6, 27], 3, None],
+        [[3, 25], 2, None],
+        [[0, 30], 4, None],
+
+        [[9, 27], 3, None],
+        [[6, 25], 2, None],
+        [[3, 30], 4, None],
+    ]
+
+
+    num_lat_clusters = 2
     for i, circle in enumerate(circles_orig):
         circle[2] = (i+2) % num_lat_clusters
 
     best_fun_vals_list = multiple_multilateration(circles_orig, xlim=xlim, ylim=ylim, num_lat_clusters=num_lat_clusters,
-                                                  opt_iters=15, recluster_iters=8)
+                                                  opt_iters=15, recluster_iters=12)
 
     plot_circles(circles_orig, best_fun_vals_list, xlim=xlim, ylim=ylim)
     print(best_fun_vals_list)

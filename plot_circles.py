@@ -31,9 +31,15 @@ def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10), savefolder='
 
     if min_fun_vals is not None:
         for min_fun_val in min_fun_vals:
-            circle_plots.append(
-                plt.Circle(min_fun_val['p'], 0.2, color='blue', fill=False)
-            )
+            if isinstance(min_fun_val['p'], list):
+                for p in min_fun_val['p']:
+                    circle_plots.append(
+                        plt.Circle(p, 0.2, color='blue', fill=False)
+                    )
+            else:
+                circle_plots.append(
+                    plt.Circle(min_fun_val['p'], 0.2, color='blue', fill=False)
+                )
 
     fig, ax = plt.subplots()
     ax.set_xlim(xlim)

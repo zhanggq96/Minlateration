@@ -14,7 +14,8 @@ def clear_dir(dir):
         # print(image)
         os.remove(image)
 
-def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10), savefolder='circles/results', iter=None,
+def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10), 
+                 savefolder=os.path.join('circles', 'results'), iteration=None,
                  clear_dir_on_new=False, title=None):
 
     # circle1 = plt.Circle((0, 0), 0.2, color='r')
@@ -50,9 +51,10 @@ def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10), savefolder='
     ax.set_aspect('equal')
 
     if title is None:
-        if iter is None:
+        if iteration is None:
             title = 'plotcircles.png'
         else:
-            title = 'plotcircles iter %d.png' % (iter,)
+            title = 'plotcircles iter %d.png' % (iteration,)
 
     fig.savefig(os.path.join(savefolder, title))
+    # fig.savefig('circles/results/%s' % (title,))

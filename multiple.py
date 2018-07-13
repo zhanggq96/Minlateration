@@ -67,12 +67,29 @@ def opt_func_dec(x_list, r_list, lat_id_list):
 def determine_num_lat_clusters(circles, clustering_threshold=0.2):
 
     def perform_hcluster(points, clustering_threshold=0.2, metric='euclidean'):
-        # do hcluster
+        # points: column np array of [x; y] containing intersections and circle centers
+        # do hcluster.
         enum_clusters = hcluster.fclusterdata(points, clustering_threshold, criterion='distance',
                                               metric=metric)
+        # enumerate the clusters from zero to # clusters-1
+        enum_clusters -= 1
+        num_lat_clusters = np.max(enum_clusters) + 1
+        # print('[perform_hcluster] num_lat_clusters:', num_lat_clusters)
+
+        lat_clusters = [[] for _ in range(num_lat_clusters)]
+        for point, point_cluster in zip(points, enum_clusters):
+            lat_clusters[point_cluster].append(point)
+
+        cluster_means = []
+        for cluster in lat_clusters:
+            mean = np.zeros_like(cluster[0], dtype='float64')
+            for point in cluster:
+                mean += point
+            mean /= len(cluster)
+            cluster_means.append(mean)
 
         # return the number of clusters and the clusters enumerated from zero
-        return np.max(enum_clusters), enum_clusters - 1
+        return num_lat_clusters, enum_clusters, cluster_means
 
     hcluster_points = []
 
@@ -85,10 +102,9 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
     for i, circle0 in enumerate(circles):
         c0_origin = coord_to_np(circle0)
 
-        # get circle origins, and add them to
-        # circle_point_id_list: to know where in the list the circle belongs,
-        # according to the point count
+        # get circle origins, and add them to hcluster points
         hcluster_points.append(c0_origin)
+
         circle_point_id_list.append(point_count)
         point_count += 1
 
@@ -105,13 +121,15 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
                 hcluster_points.extend([ix0, ix1])
                 point_count += 2
 
-    num_lat_clusters, enum_clusters = perform_hcluster(hcluster_points, clustering_threshold=clustering_threshold)
-    return num_lat_clusters, enum_clusters, circle_point_id_list
+    num_lat_clusters, enum_clusters, cluster_means = \
+        perform_hcluster(hcluster_points, clustering_threshold=clustering_threshold)
+    return num_lat_clusters, enum_clusters, cluster_means, circle_point_id_list
 
 def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                              num_lat_clusters=2, opt_trials=7, recluster_iters=5):
 
     circles_copy = deepcopy(circles_ref)
+    num_circles = len(circles_copy)
     print('[multiple_multilateration] circles_copy init:', circles_copy)
 
     options = {'disp': False}
@@ -216,42 +234,19 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
 
     # ------------------- Determine initial points if appropriate -------------------
     p0_list = None
-    num_circles = len(circles_copy)
 
     if num_lat_clusters is None:
-        num_lat_clusters, enum_clusters, circle_point_id_list \
+        num_lat_clusters, enum_clusters, cluster_means, circle_point_id_list \
             = determine_num_lat_clusters(circles_copy, clustering_threshold=4)
-
-        # initial empty clusters. Will add each circle to a cluster
-        lat_clusters = [[] for _ in range(num_lat_clusters)]
 
         # iterate over all points used in hcluster *which are circles*
         # the indices of such points were returned in circle_point_id_list
-        for circle_i, circle_point_id, circle in zip(range(num_circles), circle_point_id_list, circles_copy):
+        for circle_i, circle_point_id in zip(range(num_circles), circle_point_id_list):
             # get the cluster which circle i is in
             circle_cluster_id = enum_clusters[circle_point_id]
-            # print('Circle %d\'s cluster: %d' % (circle_i, circle_cluster_id))
-            # add this circle to appropriate cluster in lat_clusters
-            lat_clusters[circle_cluster_id].append(circle)
 
             # set the init clusters for each circle
             circles_copy[circle_i][2] = circle_cluster_id
-
-        # TODO: circles may not occupy every cluster!
-        # Some may be caused by intersections.
-        # Causes empty clusters and thus divide-by-zero error, like test case 3.
-        # What to do in this case? Perhaps instead just initialize on avg. of
-        # the intersections
-        print(lat_clusters)
-        cluster_means = []
-        for cluster in lat_clusters:
-            mean_x, mean_y = 0, 0
-            for (x, y), r, _ in cluster:
-                mean_x += x
-                mean_y += y
-            mean_x /= len(cluster)
-            mean_y /= len(cluster)
-            cluster_means.append(pair_to_np([mean_x, mean_y]))
 
         p0_list = cluster_means
 
@@ -282,6 +277,16 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                 # here for now if it seems I will use distant circle transfer in the future.
                 min_fun_vals_list.append(min_fun_vals_list_prev[j])
                 continue
+            elif not lat_cluster and i == 0:
+                # if, on initialization, there was a cluster with no circles assigned to it
+                min_fun_vals = {
+                    'loss': sys.maxsize,    # Essentially infinite loss
+                    'p': p0_list[j],        # Use initial values of p from hierarchical (avg of points)
+                    'circles': [],          # Circles are usually stored in lat_cluster. However, is an empty list so deepcopy(lat_cluster) is [].
+                    'index': j              # Cluster # j
+                }
+                min_fun_vals_list.append(min_fun_vals)
+                continue
 
             # perform multilateration.
             # use initial points corresponding to cluster j for the initial try of optimization;
@@ -300,7 +305,8 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             best_fun_vals_list = deepcopy(min_fun_vals_list)
         # circles_list: list of lateration clusters with circles_copy in them
         print('[multiple_multilateration] min_fun_vals_list', min_fun_vals_list)
-        plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim, iter=i, clear_dir_on_new=False)
+        plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim, 
+                     iteration=i, clear_dir_on_new=False)
         reassign_circle_clusters(circles_copy, min_fun_vals_list)
 
     # print(circles_copy)
@@ -388,6 +394,7 @@ if __name__ == '__main__':
     # ]
 
     # Test case 3:
+    # TODO: how to handle empty initia cluster
     circles_ref = [
         [[6, 27], 3, None],
         [[3, 25], 2, None],

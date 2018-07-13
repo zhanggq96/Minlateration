@@ -237,6 +237,12 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             # set the init clusters for each circle
             circles_copy[circle_i][2] = circle_cluster_id
 
+        # TODO: circles may not occupy every cluster!
+        # Some may be caused by intersections.
+        # Causes empty clusters and thus divide-by-zero error, like test case 3.
+        # What to do in this case? Perhaps instead just initialize on avg. of
+        # the intersections
+        print(lat_clusters)
         cluster_means = []
         for cluster in lat_clusters:
             mean_x, mean_y = 0, 0
@@ -248,6 +254,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             cluster_means.append(pair_to_np([mean_x, mean_y]))
 
         p0_list = cluster_means
+
     # ------------------- End determine initial points if appropriate -------------------
 
     best_total_loss = sys.maxsize
@@ -268,16 +275,19 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             if not lat_cluster and i > 0:
                 # If no circles in cluster, i.e. the circles were all stolen away
                 # Use the most recent value for p, the lateration cluster centre.
+
                 # TODO: "transfer" empty clusters to other circle centers far away from the rest.
+                # Addendum: I probably won't bother adding this unless it seems like it can
+                # significantly improve performance. I'll leave the argmax_x function
+                # here for now if it seems I will use distant circle transfer in the future.
                 min_fun_vals_list.append(min_fun_vals_list_prev[j])
                 continue
 
             # perform multilateration.
-            # use initial points corresponding to cluster j for the initial try of optimization
-            # print('p0_list:', p0_list)
-            # print('p0_list[j]:', p0_list[j])
-            min_fun_vals = multilat(lat_cluster, use_local_lims=i>=max(2, recluster_iters/4),
-                                    p0_from_hcluster=p0_list[j])
+            # use initial points corresponding to cluster j for the initial try of optimization;
+            # the initial try is only the first iteration of reclustering (i == 0)
+            min_fun_vals = multilat(lat_cluster, use_local_lims=i>=max(3, recluster_iters/4),
+                                    p0_from_hcluster=p0_list[j] if i == 0 else None)
             min_fun_vals['index'] = j
             min_fun_vals_list.append(min_fun_vals)
 
@@ -332,6 +342,8 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
 if __name__ == '__main__':
     xlim = (0, 35)
     ylim = (0, 35)
+
+    # Test case 0:
     # circles_ref = [
     #     [[6, 27], 3, None],
     #     [[3, 25], 2, None],
@@ -354,6 +366,7 @@ if __name__ == '__main__':
     #     [[20, 14], 2, None],
     # ]
 
+    # Test case 1:
     # circles_ref = [
     #     [[3, 4], 1.2, 0],
     #     [[3, 7], 3, 0],
@@ -363,26 +376,30 @@ if __name__ == '__main__':
     #     [[8, 6], 1.5, 1],
     # ]
 
-    circles_ref = [
-        [[15, 15], 6.5, None],
-        [[12, 15], 2, None],
-        [[17, 15], 3, None],
-        [[24, 17], 3.5, None],
-
-        # [[8, 6], 1, None],
-        # [[7.5, 6], 1.5, None],
-    ]
-
-    # circles_orig = [
-    #     [[6, 27], 3, None],
-    #     [[3, 25], 2, None],
-    #     [[0, 30], 4, None],
+    # Test case 2:
+    # circles_ref = [
+    #     [[15, 15], 6.5, None],
+    #     [[12, 15], 2, None],
+    #     [[17, 15], 3, None],
+    #     [[24, 17], 3.5, None],
     #
-    #     [[9, 27], 3, None],
-    #     [[6, 25], 2, None],
-    #     [[3, 30], 4, None],
+    #     [[8, 6], 1, None],
+    #     [[7.5, 6], 1.5, None],
     # ]
 
+    # Test case 3:
+    circles_ref = [
+        [[6, 27], 3, None],
+        [[3, 25], 2, None],
+        [[0, 30], 4, None],
+
+        [[9, 27], 3, None],
+        [[6, 25], 2, None],
+        [[3, 30], 4, None],
+    ]
+
+
+    plot_circles(circles_ref, None, xlim=xlim, ylim=ylim, title='plotcircles init')
 
     num_lat_clusters = None
     # for i, circle in enumerate(circles_ref):

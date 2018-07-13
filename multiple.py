@@ -3,12 +3,21 @@
 import sys
 import numpy as np
 import scipy
+
+from copy import deepcopy
 from scipy import optimize as opt
-# scipy has no module optimize ???????????????????
+from scipy.cluster import hierarchy as hcluster
+# scipy has no module optimize ?
 # https://stackoverflow.com/questions/37107627/python-problems-with-scipy-optimize-curve-fit
 from plot_circles import plot_circles
-from copy import deepcopy
+from circle_intersection import get_circle_intersections
 
+
+def coord_to_np(coord):
+    return np.array(coord[0]).T
+
+def pair_to_np(pair):
+    return np.array((pair[0], pair[1])).T
 
 def single_loss(p, x, r):
     return np.abs(np.linalg.norm(p-x) - r)
@@ -31,8 +40,8 @@ def opt_func_dec(x_list, r_list, lat_id_list):
     print(x_array_list)
 
     def loss_func_ord(p, norm_ord=2):
-        l = np.sum(
-            [single_loss_ord(p, x, r, norm_ord=norm_ord) for x, r in zip(x_array_list, r_list)]
+        l = sum(
+            (single_loss_ord(p, x, r, norm_ord=norm_ord) for x, r in zip(x_array_list, r_list))
         )
 
         return l
@@ -55,25 +64,59 @@ def opt_func_dec(x_list, r_list, lat_id_list):
     return loss_func_ord, loss_func, jacobian
 
 
-def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
-                             num_lat_clusters=2, opt_iters=7, recluster_iters=5):
-    # circles_orig = [
-    #     [[3, 4], 1.2, 0],
-    #     [[3, 7], 3, 0],
-    #     [[5, 4], 1, 0],
-    #     [[0, 0], 5.66, 0],
-    #     [[7.5, 6], 2, 1],
-    #     [[8, 6], 1.5, 1],
-    # ]
+def determine_num_lat_clusters(circles, clustering_threshold=0.2):
 
-    circles_copy = deepcopy(circles_orig)
+    def perform_hcluster(points, clustering_threshold=0.2, metric='euclidean'):
+        # do hcluster
+        enum_clusters = hcluster.fclusterdata(points, clustering_threshold, criterion='distance',
+                                              metric=metric)
+
+        # return the number of clusters and the clusters enumerated from zero
+        return np.max(enum_clusters), enum_clusters - 1
+
+    hcluster_points = []
+
+    # list of indices of the centers of each circle, in the order
+    # in which they are appended to hcluster points
+    circle_point_id_list = []
+    point_count = 0
+
+    # iterate over all pairs
+    for i, circle0 in enumerate(circles):
+        c0_origin = coord_to_np(circle0)
+
+        # get circle origins, and add them to
+        # circle_point_id_list: to know where in the list the circle belongs,
+        # according to the point count
+        hcluster_points.append(c0_origin)
+        circle_point_id_list.append(point_count)
+        point_count += 1
+
+        for j, circle1 in enumerate(circles[i+1:], i+1):
+
+            # Determine whether the circles actually intersect or not;
+            # if so, return intersection points as 2 column numpy vectors
+            # In the case of one tangential intersection, return same point
+            # twice
+            ix0, ix1, case = get_circle_intersections(circle0, circle1)
+            if case in {'seperate', 'contained', 'coincident'}:
+                continue
+            elif case == 'intersect':
+                hcluster_points.extend([ix0, ix1])
+                point_count += 2
+
+    num_lat_clusters, enum_clusters = perform_hcluster(hcluster_points, clustering_threshold=clustering_threshold)
+    return num_lat_clusters, enum_clusters, circle_point_id_list
+
+def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
+                             num_lat_clusters=2, opt_trials=7, recluster_iters=5):
+
+    circles_copy = deepcopy(circles_ref)
     print('[multiple_multilateration] circles_copy init:', circles_copy)
 
-
-    # print(zip(*circles_copy))
     options = {'disp': False}
-    p0_example = np.array([2, 2]).T
-    # print(loss_func(np.array([0, 0]).T))
+
+    # ------------------- Begin Helper Functions -------------------
 
     def get_local_lims(circles):
         max_x = -sys.maxsize
@@ -88,14 +131,15 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
 
         return (min_x, max_x), (min_y, max_y)
 
-    def multilat(circles, use_local_lims=False):
+    def multilat(circles, use_local_lims=False, p0_from_hcluster=None):
 
         loss_func_ord, loss_func, grad_j = opt_func_dec(*zip(*circles))
 
         min_fun_vals = {
             'loss': sys.maxsize,
             'p': None,
-            'circles': deepcopy(circles)
+            'circles': deepcopy(circles),
+            'index': None
         }
 
         # Get coordinate limits of the cluster's data
@@ -104,12 +148,17 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
         else:
             cluster_xlim, cluster_ylim = xlim, ylim
 
-        for _ in range(opt_iters):
+        for ot in range(opt_trials):
             # p0 = np.array([7, 7]).T
             # p0 = np.random.uniform(0, 30, p0_example.shape)
 
             # Generate single random initial cluster center
-            p0 = np.array([np.random.uniform(*cluster_xlim), np.random.uniform(*cluster_ylim)]).T
+            # always do so for the initial try
+            # if p0_from_hcluster is not None and (ot == 0 or ot % 2 == 0):
+            if p0_from_hcluster is not None and (ot == 0):
+                p0 = p0_from_hcluster
+            else:
+                p0 = np.array([np.random.uniform(*cluster_xlim), np.random.uniform(*cluster_ylim)]).T
             # Optimize over this
             p = opt.minimize(loss_func, p0, jac=grad_j, method='SLSQP', options=options)
             # print(p)
@@ -163,6 +212,44 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
 
         return +1
 
+    # ------------------- End Helper Functions -------------------
+
+    # ------------------- Determine initial points if appropriate -------------------
+    p0_list = None
+    num_circles = len(circles_copy)
+
+    if num_lat_clusters is None:
+        num_lat_clusters, enum_clusters, circle_point_id_list \
+            = determine_num_lat_clusters(circles_copy, clustering_threshold=4)
+
+        # initial empty clusters. Will add each circle to a cluster
+        lat_clusters = [[] for _ in range(num_lat_clusters)]
+
+        # iterate over all points used in hcluster *which are circles*
+        # the indices of such points were returned in circle_point_id_list
+        for circle_i, circle_point_id, circle in zip(range(num_circles), circle_point_id_list, circles_copy):
+            # get the cluster which circle i is in
+            circle_cluster_id = enum_clusters[circle_point_id]
+            # print('Circle %d\'s cluster: %d' % (circle_i, circle_cluster_id))
+            # add this circle to appropriate cluster in lat_clusters
+            lat_clusters[circle_cluster_id].append(circle)
+
+            # set the init clusters for each circle
+            circles_copy[circle_i][2] = circle_cluster_id
+
+        cluster_means = []
+        for cluster in lat_clusters:
+            mean_x, mean_y = 0, 0
+            for (x, y), r, _ in cluster:
+                mean_x += x
+                mean_y += y
+            mean_x /= len(cluster)
+            mean_y /= len(cluster)
+            cluster_means.append(pair_to_np([mean_x, mean_y]))
+
+        p0_list = cluster_means
+    # ------------------- End determine initial points if appropriate -------------------
+
     best_total_loss = sys.maxsize
     best_fun_vals_list = None
 
@@ -185,7 +272,12 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
                 min_fun_vals_list.append(min_fun_vals_list_prev[j])
                 continue
 
-            min_fun_vals = multilat(lat_cluster, use_local_lims=i>=max(3, recluster_iters/4))
+            # perform multilateration.
+            # use initial points corresponding to cluster j for the initial try of optimization
+            # print('p0_list:', p0_list)
+            # print('p0_list[j]:', p0_list[j])
+            min_fun_vals = multilat(lat_cluster, use_local_lims=i>=max(2, recluster_iters/4),
+                                    p0_from_hcluster=p0_list[j])
             min_fun_vals['index'] = j
             min_fun_vals_list.append(min_fun_vals)
 
@@ -240,55 +332,64 @@ def multiple_multilateration(circles_orig, xlim=(0,10), ylim=(0,10),
 if __name__ == '__main__':
     xlim = (0, 35)
     ylim = (0, 35)
-    circles_orig = [
-        [[6, 27], 3, None],
-        [[3, 25], 2, None],
-        [[0, 30], 4, None],
+    # circles_ref = [
+    #     [[6, 27], 3, None],
+    #     [[3, 25], 2, None],
+    #     [[0, 30], 4, None],
+    #
+    #     [[27, 27], 3, None],
+    #     [[26, 27], 2.15, None],
+    #     [[24, 30], 4, None],
+    #     [[22, 22], 4, None],
+    #
+    #     [[28, 4], 1.5, None],
+    #     [[26, 3], 2, None],
+    #     [[25.77, 6.8], 2.7, None],
+    #     # [[25.77, 5.5], 2.755, None],
+    #
+    #     [[3, 3], 1.5, None],
+    #     [[4.5, 3.5], 2, None],
+    #
+    #     [[19, 11], 1.5, None],
+    #     [[20, 14], 2, None],
+    # ]
 
-        [[27, 27], 3, None],
-        [[26, 27], 2.15, None],
-        [[24, 30], 4, None],
-        [[22, 22], 4, None],
+    # circles_ref = [
+    #     [[3, 4], 1.2, 0],
+    #     [[3, 7], 3, 0],
+    #     [[5, 4], 1, 0],
+    #     [[0, 0], 5.66, 0],
+    #     [[7.5, 6], 2, 1],
+    #     [[8, 6], 1.5, 1],
+    # ]
 
-        [[28, 4], 1.5, None],
-        [[26, 3], 2, None],
-        [[25.77, 6.8], 2.7, None],
-        # [[25.77, 5.5], 2.755, None],
+    circles_ref = [
+        [[15, 15], 6.5, None],
+        [[12, 15], 2, None],
+        [[17, 15], 3, None],
+        [[24, 17], 3.5, None],
 
-        [[3, 3], 1.5, None],
-        [[4.5, 3.5], 2, None],
-
-        [[19, 11], 1.5, None],
-        [[20, 14], 2, None],
+        # [[8, 6], 1, None],
+        # [[7.5, 6], 1.5, None],
     ]
 
     # circles_orig = [
-    #     [[15, 15], 6.5, None],
-    #     [[12, 15], 2, None],
-    #     [[17, 15], 3, None],
-    #     [[24, 17], 3.5, None],
-
-    #     # [[8, 6], 1, None],
-    #     # [[7.5, 6], 1.5, None],
+    #     [[6, 27], 3, None],
+    #     [[3, 25], 2, None],
+    #     [[0, 30], 4, None],
+    #
+    #     [[9, 27], 3, None],
+    #     [[6, 25], 2, None],
+    #     [[3, 30], 4, None],
     # ]
 
-    circles_orig = [
-        [[6, 27], 3, None],
-        [[3, 25], 2, None],
-        [[0, 30], 4, None],
 
-        [[9, 27], 3, None],
-        [[6, 25], 2, None],
-        [[3, 30], 4, None],
-    ]
+    num_lat_clusters = None
+    # for i, circle in enumerate(circles_ref):
+    #     circle[2] = (i+2) % num_lat_clusters
 
+    best_fun_vals_list = multiple_multilateration(circles_ref, xlim=xlim, ylim=ylim, num_lat_clusters=num_lat_clusters,
+                                                  opt_trials=15, recluster_iters=8)
 
-    num_lat_clusters = 2
-    for i, circle in enumerate(circles_orig):
-        circle[2] = (i+2) % num_lat_clusters
-
-    best_fun_vals_list = multiple_multilateration(circles_orig, xlim=xlim, ylim=ylim, num_lat_clusters=num_lat_clusters,
-                                                  opt_iters=15, recluster_iters=12)
-
-    plot_circles(circles_orig, best_fun_vals_list, xlim=xlim, ylim=ylim)
+    plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim)
     print(best_fun_vals_list)

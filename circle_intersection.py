@@ -12,7 +12,8 @@ def get_circle_intersections(c0, c1):
     if d > (r0 + r1):
         return None, None, 'seperate'
     elif d < abs(r0 - r1):
-        return None, None, 'contained'
+        # return (is circle 0 bigger?, is circle 1 bigger?, contained.)
+        return r0 >= r1, r1 > r0, 'contained'
     elif d == 0 and r0 == r1:
         return None, None, 'coincident'
 

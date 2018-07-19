@@ -16,7 +16,7 @@ def clear_dir(dir):
 
 def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10), 
                  savefolder=os.path.join('circles', 'results'), iteration=None,
-                 clear_dir_on_new=False, title=None):
+                 clear_dir_on_new=False, title=None, highlight_radius=0.2):
 
     # circle1 = plt.Circle((0, 0), 0.2, color='r')
     # circle2 = plt.Circle((0.5, 0.5), 0.2, color='blue')
@@ -35,11 +35,11 @@ def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10),
             if isinstance(min_fun_val['p'], list):
                 for p in min_fun_val['p']:
                     circle_plots.append(
-                        plt.Circle(p, 0.2, color='purple', fill=False)
+                        plt.Circle(p, highlight_radius, color='purple', fill=False)
                     )
             else:
                 circle_plots.append(
-                    plt.Circle(min_fun_val['p'], 0.2, color='blue', fill=False)
+                    plt.Circle(min_fun_val['p'], highlight_radius, color='blue', fill=False)
                 )
 
     fig, ax = plt.subplots()

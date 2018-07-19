@@ -170,7 +170,8 @@ def get_local_lims(circles):
 
 def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                              num_lat_clusters=2, opt_trials=7, recluster_iters=5,
-                             clustering_threshold=4.5, verbose=False):
+                             clustering_threshold=4.5, highlight_radius=0.2,
+                             verbose=False):
 
     circles_copy = deepcopy(circles_ref)
     num_circles = len(circles_copy)
@@ -339,7 +340,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
 
         if verbose: print('min_fun_vals_list', min_fun_vals_list)
         plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim, 
-                     iteration=i, clear_dir_on_new=False)
+                     iteration=i, clear_dir_on_new=False, highlight_radius=highlight_radius)
         reassign_circle_clusters(circles_copy, min_fun_vals_list)
 
     # if verbose:
@@ -400,18 +401,17 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
         circles_np.append([pair_to_np([x, y]), r, lat_cluster_id])
         r_avg += r
     r_avg /= len(circles_np)
+    highlight_radius = r_avg / 10
 
     if clustering_threshold is None:
         diameter = max(xlim[1]-xlim[0], ylim[1]-ylim[0])
         # threshold: determine based on diamater of area covered
         # and circle average sizes
         # (determined these by trial and error)
-        if diameter / (r_avg*3) > 3.2:
+        if diameter / (r_avg*3) > 4:
             clustering_threshold = diameter / (r_avg*3)
-        elif diameter / (r_avg*3) > 2.7:
-            clustering_threshold = (diameter / (r_avg*3)) ** (4/3)
         elif diameter / (r_avg*3) > 2:
-            clustering_threshold = (diameter / (r_avg*3)) ** (3/2)
+            clustering_threshold = 4
         else:
             clustering_threshold = (diameter / (r_avg*3)) ** 2
 
@@ -421,38 +421,38 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
     best_fun_vals_list, best_total_loss = \
         multiple_multilateration(circles_np, xlim=xlim, ylim=ylim, num_lat_clusters=num_lat_clusters,
                                  opt_trials=15, recluster_iters=5, clustering_threshold=clustering_threshold,
-                                 verbose=verbose)
+                                 highlight_radius=highlight_radius, verbose=verbose)
 
     if verbose: print('Best total loss:', best_total_loss)
 
-    return best_fun_vals_list, best_total_loss, xlim, ylim
+    return best_fun_vals_list, best_total_loss, xlim, ylim, highlight_radius
 
 if __name__ == '__main__':
     xlim = None
     ylim = None
 
     # Test case 0:
-    # circles_ref = [
-    #     [[6, 27], 3, None],
-    #     [[3, 25], 2, None],
-    #     [[0, 30], 4, None],
-    #
-    #     [[27, 27], 3, None],
-    #     [[26, 27], 2.15, None],
-    #     [[24, 30], 4, None],
-    #     [[22, 22], 4, None],
-    #
-    #     [[28, 4], 1.5, None],
-    #     [[26, 3], 2, None],
-    #     [[25.77, 6.8], 2.7, None],
-    #     # [[25.77, 5.5], 2.755, None],
-    #
-    #     [[3, 3], 1.5, None],
-    #     [[4.5, 3.5], 2, None],
-    #
-    #     [[19, 11], 1.5, None],
-    #     [[20, 14], 2, None],
-    # ]
+    circles_ref = [
+        [[6, 27], 3, None],
+        [[3, 25], 2, None],
+        [[0, 30], 4, None],
+
+        [[27, 27], 3, None],
+        [[26, 27], 2.15, None],
+        [[24, 30], 4, None],
+        [[22, 22], 4, None],
+
+        [[28, 4], 1.5, None],
+        [[26, 3], 2, None],
+        [[25.77, 6.8], 2.7, None],
+        # [[25.77, 5.5], 2.755, None],
+
+        [[3, 3], 1.5, None],
+        [[4.5, 3.5], 2, None],
+
+        [[19, 11], 1.5, None],
+        [[20, 14], 2, None],
+    ]
 
     # Test case 1:
     # circles_ref = [
@@ -476,21 +476,21 @@ if __name__ == '__main__':
     # ]
 
     # Test case 3:
-    circles_ref = [
-        [[6, 27], 3, None],
-        [[3, 25], 2, None],
-        [[0, 30], 4, None],
-
-        [[9, 27], 3, None],
-        [[6, 25], 2, None],
-        [[3, 30], 4, None],
-    ]
+    # circles_ref = [
+    #     [[6, 27], 3, None],
+    #     [[3, 25], 2, None],
+    #     [[0, 30], 4, None],
+    #
+    #     [[9, 27], 3, None],
+    #     [[6, 25], 2, None],
+    #     [[3, 30], 4, None],
+    # ]
 
     plot_circles(circles_ref, None, xlim=xlim, ylim=ylim, title='plotcircles init')
 
-    best_fun_vals_list, best_total_loss, xlim, ylim = \
+    best_fun_vals_list, best_total_loss, xlim, ylim, highlight_radius = \
         locate_intersections(circles_ref, xlim=xlim, ylim=ylim, num_lat_clusters=None,
-                             clustering_threshold=None, verbose=False)
+                             clustering_threshold=None, verbose=True)
 
-    plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim)
+    plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim, highlight_radius=highlight_radius)
     # print(best_fun_vals_list)

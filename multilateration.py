@@ -174,7 +174,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
 
     circles_copy = deepcopy(circles_ref)
     num_circles = len(circles_copy)
-    print('[multiple_multilateration] circles_copy init:', circles_copy)
+    if verbose: print('[multiple_multilateration] circles_copy init:', circles_copy)
 
     options = {'disp': False}
 
@@ -289,7 +289,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
 
     min_fun_vals_list = []
     for i in range(recluster_iters):
-        print('--- Iteration %d ---' % (i,))
+        if verbose: print('--- Iteration %d ---' % (i,))
         lat_clusters = [[] for _ in range(num_lat_clusters)]
         for j, ((x, y), r, lat_cluster_id) in enumerate(circles_copy):
             lat_clusters[lat_cluster_id].append(circles_copy[j])
@@ -377,10 +377,9 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
 
     for best_fun_vals in best_fun_vals_list:
         if len(best_fun_vals['circles']) == 2:
-            print(best_fun_vals['circles'])
             ix0, ix1, case = get_circle_intersections(*best_fun_vals['circles'])
             if case == 'intersect':
-                print('intersections:', ix0, ix1)
+                # print('intersections:', ix0, ix1)
                 best_fun_vals['p'] = [ix0, ix1]
 
     return best_fun_vals_list, best_total_loss
@@ -407,7 +406,6 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
         # threshold: determine based on diamater of area covered
         # and circle average sizes
         # (determined these by trial and error)
-        print('Diameter, r_avg:', diameter, r_avg)
         if diameter / (r_avg*3) > 3.2:
             clustering_threshold = diameter / (r_avg*3)
         elif diameter / (r_avg*3) > 2.7:
@@ -492,7 +490,7 @@ if __name__ == '__main__':
 
     best_fun_vals_list, best_total_loss, xlim, ylim = \
         locate_intersections(circles_ref, xlim=xlim, ylim=ylim, num_lat_clusters=None,
-                             clustering_threshold=None, verbose=True)
+                             clustering_threshold=None, verbose=False)
 
     plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim)
     # print(best_fun_vals_list)

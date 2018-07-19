@@ -34,11 +34,6 @@ def opt_func_dec(x_list, r_list, lat_id_list):
     x_list_copy = deepcopy(x_list)
     r_list_copy = deepcopy(r_list)
 
-    # x_array_list = []
-    # for x, y in x_list:
-    #     x_array_list.append(np.array([x, y]).T)
-    # print(x_array_list)
-
     def loss_func_ord(p, norm_ord=2):
         l = sum(
             (single_loss_ord(p, x, r, norm_ord=norm_ord) for x, r in zip(x_list_copy, r_list_copy))
@@ -160,9 +155,22 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
         perform_hcluster(hcluster_points, clustering_threshold=clustering_threshold)
     return num_lat_clusters, enum_clusters, cluster_means, circle_point_id_list
 
+def get_local_lims(circles):
+    max_x = -sys.maxsize
+    min_x = +sys.maxsize
+    max_y = -sys.maxsize
+    min_y = +sys.maxsize
+    for (x, y), r, lat_cluster_id in circles:
+        max_x = max(x + r, max_x)
+        min_x = min(x - r, min_x)
+        max_y = max(y + r, max_y)
+        min_y = min(y - r, min_y)
+
+    return (min_x, max_x), (min_y, max_y)
+
 def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                              num_lat_clusters=2, opt_trials=7, recluster_iters=5,
-                             clustering_threshold=5.):
+                             clustering_threshold=4.5, verbose=False):
 
     circles_copy = deepcopy(circles_ref)
     num_circles = len(circles_copy)
@@ -171,19 +179,6 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
     options = {'disp': False}
 
     # ------------------- Begin Helper Functions -------------------
-
-    def get_local_lims(circles):
-        max_x = -sys.maxsize
-        min_x = +sys.maxsize
-        max_y = -sys.maxsize
-        min_y = +sys.maxsize
-        for (x, y), r, lat_cluster_id in circles:
-            max_x = max(x + r, max_x)
-            min_x = min(x - r, min_x)
-            max_y = max(y + r, max_y)
-            min_y = min(y - r, min_x)
-
-        return (min_x, max_x), (min_y, max_y)
 
     def multilat(circles, use_local_lims=False, p0_from_hcluster=None):
 
@@ -258,7 +253,6 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         return max_delocalized_circle, max_delocalized_circle_index
 
     def reassign_circle_clusters(circles, min_fun_vals, epsilon=0.25):
-
         for i, ((x, y), r, lat_cluster_id) in enumerate(circles):
             # second_min_lat_cluster unused - might be useful later for prob. epsilon swap
             min_lat_cluster, _ = argmin_p(circles[i], min_fun_vals)
@@ -303,7 +297,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         min_fun_vals_list_prev = min_fun_vals_list
         min_fun_vals_list = []
         for j, lat_cluster in enumerate(lat_clusters):
-            print(lat_cluster)
+            if verbose: print('Cluster # %d:' % (j,), lat_cluster)
             # Assume all clusters have been assigned some circles at the beginning
             if not lat_cluster and i > 0:
                 # If no circles in cluster, i.e. the circles were all stolen away
@@ -320,7 +314,8 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                 min_fun_vals = {
                     'loss': sys.maxsize,    # Essentially infinite loss
                     'p': p0_list[j],        # Use initial values of p from hierarchical (avg of points)
-                    'circles': [],          # Circles are usually stored in lat_cluster. However, is an empty list so deepcopy(lat_cluster) is [].
+                    'circles': [],          # Circles are usually stored in lat_cluster.
+                                            # However, is an empty list so deepcopy(lat_cluster) is [].
                     'index': j              # Cluster # j
                 }
                 min_fun_vals_list.append(min_fun_vals)
@@ -341,16 +336,14 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         if total_loss < best_total_loss:
             best_total_loss = total_loss
             best_fun_vals_list = deepcopy(min_fun_vals_list)
-        # circles_list: list of lateration clusters with circles_copy in them
-        print('[multiple_multilateration] min_fun_vals_list', min_fun_vals_list)
+
+        if verbose: print('min_fun_vals_list', min_fun_vals_list)
         plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim, 
                      iteration=i, clear_dir_on_new=False)
         reassign_circle_clusters(circles_copy, min_fun_vals_list)
 
-    # print(circles_copy)
-    # print(min_fun_vals_list)
-
-    print(circles_copy)
+    # if verbose:
+    #     print(circles_copy)
 
     # --- Does not work well ---
     """
@@ -380,12 +373,53 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
 
     """
 
+    for best_fun_vals in best_fun_vals_list:
+        if len(best_fun_vals['circles']) == 2:
+            print(best_fun_vals['circles'])
+            ix0, ix1, case = get_circle_intersections(*best_fun_vals['circles'])
+            if case == 'intersect':
+                print('intersections:', ix0, ix1)
+                best_fun_vals['p'] = [ix0, ix1]
+
     return best_fun_vals_list, best_total_loss
 
+def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=None, clustering_threshold=None,
+                         verbose=False):
+
+    # assert circles_ref
+    assert (xlim is not None and ylim is not None) or (xlim is None and ylim is None)
+
+    if xlim is None or ylim is None:
+        xlim, ylim = get_local_lims(circles_ref)
+        if verbose: print('[minlateration: locate_intersections] xlim, ylim:', xlim, ylim)
+
+    r_avg = 0
+    circles_np = []
+    for (x, y), r, lat_cluster_id in circles_ref:
+        circles_np.append([pair_to_np([x, y]), r, lat_cluster_id])
+        r_avg += r
+    r_avg /= len(circles_np)
+
+    if clustering_threshold is None:
+        diameter = max(xlim[1]-xlim[0], ylim[1]-ylim[0])
+        # threshold: determine based on diamater of area covered
+        # and circle average sizes
+        clustering_threshold = diameter / (r_avg*3)
+        if verbose: print('[minlateration: locate_intersections] auto cluster threshold: %f'
+                          % (clustering_threshold,))
+
+    best_fun_vals_list, best_total_loss = \
+        multiple_multilateration(circles_np, xlim=xlim, ylim=ylim, num_lat_clusters=num_lat_clusters,
+                                 opt_trials=15, recluster_iters=5, clustering_threshold=clustering_threshold,
+                                 verbose=verbose)
+
+    if verbose: print('Best total loss:', best_total_loss)
+
+    return best_fun_vals_list, best_total_loss, xlim, ylim
 
 if __name__ == '__main__':
-    xlim = (0, 35)
-    ylim = (0, 35)
+    xlim = None
+    ylim = None
 
     # Test case 0:
     # circles_ref = [
@@ -421,40 +455,31 @@ if __name__ == '__main__':
     # ]
 
     # Test case 2:
-    circles_ref = [
-        [[15, 15], 6.5, None],
-        [[12, 15], 2, None],
-        [[17, 15], 3, None],
-        [[24, 17], 3.5, None],
-
-        [[8, 6], 1, None],
-        [[7.5, 6], 1.5, None],
-    ]
-
-    # Test case 3:
     # circles_ref = [
-    #     [[6, 27], 3, None],
-    #     [[3, 25], 2, None],
-    #     [[0, 30], 4, None],
+    #     [[15, 15], 6.5, None],
+    #     [[12, 15], 2, None],
+    #     [[17, 15], 3, None],
+    #     [[24, 17], 3.5, None],
     #
-    #     [[9, 27], 3, None],
-    #     [[6, 25], 2, None],
-    #     [[3, 30], 4, None],
+    #     [[8, 6], 1, None],
+    #     [[7.5, 6], 1.5, None],
     # ]
 
-    circles_ref = [[pair_to_np([x, y]), r, lat_cluster_id] for (x, y), r, lat_cluster_id in circles_ref]
+    # Test case 3:
+    circles_ref = [
+        [[6, 27], 3, None],
+        [[3, 25], 2, None],
+        [[0, 30], 4, None],
 
-
+        [[9, 27], 3, None],
+        [[6, 25], 2, None],
+        [[3, 30], 4, None],
+    ]
     plot_circles(circles_ref, None, xlim=xlim, ylim=ylim, title='plotcircles init')
 
-    num_lat_clusters = None
-    # for i, circle in enumerate(circles_ref):
-    #     circle[2] = (i+2) % num_lat_clusters
-
-    best_fun_vals_list, best_total_loss = \
-        multiple_multilateration(circles_ref, xlim=xlim, ylim=ylim, num_lat_clusters=num_lat_clusters,
-                                                  opt_trials=15, recluster_iters=4, clustering_threshold=5)
+    best_fun_vals_list, best_total_loss, xlim, ylim = \
+        locate_intersections(circles_ref, xlim=xlim, ylim=ylim, num_lat_clusters=None,
+                             clustering_threshold=None, verbose=True)
 
     plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim)
-    print('Best total loss:', best_total_loss)
     # print(best_fun_vals_list)

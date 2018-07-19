@@ -26,8 +26,8 @@ def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10),
 
     circle_plots = []
 
-    for (x, y), r, lat_cluster_id in circles:
-        circle_plot = plt.Circle((x, y), r, color='r', fill=False)
+    for c, r, lat_cluster_id in circles:
+        circle_plot = plt.Circle(c, r, color='r', fill=False)
         circle_plots.append(circle_plot)
 
     if min_fun_vals is not None:
@@ -35,7 +35,7 @@ def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10),
             if isinstance(min_fun_val['p'], list):
                 for p in min_fun_val['p']:
                     circle_plots.append(
-                        plt.Circle(p, 0.2, color='blue', fill=False)
+                        plt.Circle(p, 0.2, color='purple', fill=False)
                     )
             else:
                 circle_plots.append(

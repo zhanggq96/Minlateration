@@ -7,7 +7,6 @@ def get_circle_intersections(circle0, circle1):
     c0, r0, _ = circle0
     c1, r1, _ = circle1
 
-    # d = math.sqrt((x0-x1)**2 + (y0-y1)**2)
     d = np.linalg.norm(c0-c1)
 
     if d > (r0 + r1):
@@ -21,16 +20,20 @@ def get_circle_intersections(circle0, circle1):
     a = (r0**2 - r1**2 + d**2) / (2*d)
     h = math.sqrt(r0**2 - a**2)
 
-    # p2x = x0 + a*(x1 - x0) / d
-    # p2y = y0 + a*(y1 - y0) / d
+    # middle
     p2 = c0 + a*(c1 - c0) / d
 
-    # p3x_top = p2x + h*(y1 - y0) / d
-    # p3y_top = p2y + h*(x1 - x0) / d
-    p3_top = p2 + h*(c1 - c0) / d
+    # intersections
+    p3_top, p3_bot = np.zeros_like(p2), np.zeros_like(p2)
 
-    # p3x_bot = p2x + h * (y1 - y0) / d
-    # p3y_bot = p2y + h * (x1 - x0) / d
-    p3_bot = p2 + h * (c1 - c0) / d
+    # x coord
+    p3_top[0] = p2[0] + h*(c1[1] - c0[1]) / d
+    # y coord
+    p3_top[1] = p2[1] - h*(c1[0] - c0[0]) / d
+
+    # x coord
+    p3_bot[0] = p2[0] - h*(c1[1] - c0[1]) / d
+    # y coord
+    p3_bot[1] = p2[1] + h*(c1[0] - c0[0]) / d
 
     return p3_top, p3_bot, 'intersect'

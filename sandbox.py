@@ -1,5 +1,5 @@
 from plot_circles import plot_circles
-from multiple import *
+from multilateration import *
 
 
 def circle_sandbox(num_lat_clusters=5, opt_iters=12, recluster_iters=5):

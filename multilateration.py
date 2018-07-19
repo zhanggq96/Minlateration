@@ -372,6 +372,8 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             # else, min_fun_vals['p'] = p_original (which have not changed)
 
     """
+    if best_fun_vals_list is None:
+        best_fun_vals_list = min_fun_vals_list
 
     for best_fun_vals in best_fun_vals_list:
         if len(best_fun_vals['circles']) == 2:
@@ -404,7 +406,17 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
         diameter = max(xlim[1]-xlim[0], ylim[1]-ylim[0])
         # threshold: determine based on diamater of area covered
         # and circle average sizes
-        clustering_threshold = diameter / (r_avg*3)
+        # (determined these by trial and error)
+        print('Diameter, r_avg:', diameter, r_avg)
+        if diameter / (r_avg*3) > 3.2:
+            clustering_threshold = diameter / (r_avg*3)
+        elif diameter / (r_avg*3) > 2.7:
+            clustering_threshold = (diameter / (r_avg*3)) ** (4/3)
+        elif diameter / (r_avg*3) > 2:
+            clustering_threshold = (diameter / (r_avg*3)) ** (3/2)
+        else:
+            clustering_threshold = (diameter / (r_avg*3)) ** 2
+
         if verbose: print('[minlateration: locate_intersections] auto cluster threshold: %f'
                           % (clustering_threshold,))
 
@@ -475,6 +487,7 @@ if __name__ == '__main__':
         [[6, 25], 2, None],
         [[3, 30], 4, None],
     ]
+
     plot_circles(circles_ref, None, xlim=xlim, ylim=ylim, title='plotcircles init')
 
     best_fun_vals_list, best_total_loss, xlim, ylim = \

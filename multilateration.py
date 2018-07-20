@@ -7,10 +7,15 @@ import scipy
 from copy import deepcopy
 from scipy import optimize as opt
 from scipy.cluster import hierarchy as hcluster
-# scipy has no module optimize ?
-# https://stackoverflow.com/questions/37107627/python-problems-with-scipy-optimize-curve-fit
-from plot_circles import plot_circles
-from circle_intersection import get_circle_intersections
+
+try:
+    # from same directory
+    from plot_circles import plot_circles
+    from circle_intersection import get_circle_intersections
+except ModuleNotFoundError:
+    # if it is contained in a project
+    from .plot_circles import plot_circles
+    from .circle_intersection import get_circle_intersections
 
 
 # def coord_to_np(coord):
@@ -339,7 +344,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             best_fun_vals_list = deepcopy(min_fun_vals_list)
 
         if verbose: print('min_fun_vals_list', min_fun_vals_list)
-        plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim, 
+        load_plot_circles.plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim, 
                      iteration=i, clear_dir_on_new=False, highlight_radius=highlight_radius)
         reassign_circle_clusters(circles_copy, min_fun_vals_list)
 
@@ -393,7 +398,9 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
 
     r_avg = 0
     circles_np = []
-    for (x, y), r in circles_ref:
+    for circle in circles_ref:
+        x, y = circles[0]
+        r = circles[1]
         circles_np.append([pair_to_np([x, y]), r, None])
         r_avg += r
     r_avg /= len(circles_np)
@@ -493,5 +500,5 @@ if __name__ == '__main__':
         locate_intersections(circles_ref, xlim=xlim, ylim=ylim, num_lat_clusters=None,
                              clustering_threshold=None, verbose=True)
 
-    plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim, highlight_radius=highlight_radius)
+    load_plot_circles.plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim, highlight_radius=highlight_radius)
     # print(best_fun_vals_list)

@@ -70,11 +70,9 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
         # points: column np array of [x; y] containing intersections and circle centers
         # do hcluster.
         if len(points) == 1:
-            print('[multilateration: perform_hcluster] points:', type(points), points)
             num_lat_clusters = 1
             enum_clusters = np.array([0,])
             cluster_means = [np.copy(points[0]),]
-            print('[multilateration: perform_hcluster] cluster_means:', type(cluster_means), cluster_means)
             return num_lat_clusters, enum_clusters, cluster_means
 
         enum_clusters = hcluster.fclusterdata(points, clustering_threshold, criterion='distance',
@@ -164,7 +162,6 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
                 hcluster_points.extend([ix0, ix1])
                 point_count += 2
 
-    print('[multilateration: determine_num_lat_clusters] hcluster_points:', hcluster_points)
     num_lat_clusters, enum_clusters, cluster_means = \
         perform_hcluster(hcluster_points, clustering_threshold=clustering_threshold)
     return num_lat_clusters, enum_clusters, cluster_means, circle_point_id_list
@@ -223,8 +220,6 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                 p0 = p0_from_hcluster
             else:
                 p0 = np.array([np.random.uniform(*cluster_xlim), np.random.uniform(*cluster_ylim)]).T
-
-            print('[multilateration: multilat] p0: ', p0)
 
             # Optimize over this
             p = opt.minimize(loss_func, p0, jac=grad_j, method='SLSQP', options=options)
@@ -426,18 +421,19 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
     if clustering_threshold is None:
         K = 34
         diameter = max(xlim[1]-xlim[0], ylim[1]-ylim[0])
+        ratio_determinant = diameter / (r_avg*3)
         # threshold: determine based on diamater of area covered
         # and circle average sizes
         # (determined these by trial and error)
-        if diameter / (r_avg*3) > 4:
+        if ratio_determinant > 4:
             auto_clustering_threshold = (diameter / K) * diameter / (r_avg*3)
-        elif diameter / (r_avg*3) > 2:
+        elif ratio_determinant > 2:
             auto_clustering_threshold = (diameter / K) * 4
         else:
             auto_clustering_threshold = ((diameter / K) * diameter / (r_avg*3)) ** 2
 
-        if verbose: print('[minlateration: locate_intersections] auto cluster threshold: %f'
-                          % (auto_clustering_threshold,))
+        if verbose: print('[minlateration: locate_intersections] auto cluster threshold: %f ratio_determinant: %f'
+                          % (auto_clustering_threshold, ratio_determinant))
 
         clustering_threshold = auto_clustering_threshold
 

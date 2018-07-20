@@ -69,6 +69,14 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
     def perform_hcluster(points, clustering_threshold=0.2, metric='euclidean'):
         # points: column np array of [x; y] containing intersections and circle centers
         # do hcluster.
+        if len(points) == 1:
+            print('[multilateration: perform_hcluster] points:', type(points), points)
+            num_lat_clusters = 1
+            enum_clusters = np.array([0,])
+            cluster_means = [np.copy(points[0]),]
+            print('[multilateration: perform_hcluster] cluster_means:', type(cluster_means), cluster_means)
+            return num_lat_clusters, enum_clusters, cluster_means
+
         enum_clusters = hcluster.fclusterdata(points, clustering_threshold, criterion='distance',
                                               metric=metric)
         # enumerate the clusters from zero to # clusters-1
@@ -156,6 +164,7 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
                 hcluster_points.extend([ix0, ix1])
                 point_count += 2
 
+    print('[multilateration: determine_num_lat_clusters] hcluster_points:', hcluster_points)
     num_lat_clusters, enum_clusters, cluster_means = \
         perform_hcluster(hcluster_points, clustering_threshold=clustering_threshold)
     return num_lat_clusters, enum_clusters, cluster_means, circle_point_id_list
@@ -176,7 +185,7 @@ def get_local_lims(circles):
 def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                              num_lat_clusters=2, opt_trials=7, recluster_iters=5,
                              clustering_threshold=4.5, highlight_radius=0.2,
-                             verbose=False):
+                             plot_circles_on_iter=False, verbose=False):
 
     circles_copy = deepcopy(circles_ref)
     num_circles = len(circles_copy)
@@ -214,6 +223,9 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                 p0 = p0_from_hcluster
             else:
                 p0 = np.array([np.random.uniform(*cluster_xlim), np.random.uniform(*cluster_ylim)]).T
+
+            print('[multilateration: multilat] p0: ', p0)
+
             # Optimize over this
             p = opt.minimize(loss_func, p0, jac=grad_j, method='SLSQP', options=options)
             # print(p)
@@ -344,8 +356,9 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             best_fun_vals_list = deepcopy(min_fun_vals_list)
 
         if verbose: print('min_fun_vals_list', min_fun_vals_list)
-        plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim, 
-                     iteration=i, clear_dir_on_new=False, highlight_radius=highlight_radius)
+        if plot_circles_on_iter:
+            plot_circles(circles_copy, min_fun_vals_list, xlim=xlim, ylim=ylim,
+                         iteration=i, clear_dir_on_new=False, highlight_radius=highlight_radius)
         reassign_circle_clusters(circles_copy, min_fun_vals_list)
 
     # if verbose:
@@ -391,7 +404,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
     return best_fun_vals_list, best_total_loss
 
 def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=None, clustering_threshold=None,
-                         verbose=False):
+                         plot_circles_on_iter=False, verbose=False):
 
     assert circles_ref
     assert (xlim is not None and ylim is not None) or (xlim is None and ylim is None)
@@ -417,19 +430,22 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
         # and circle average sizes
         # (determined these by trial and error)
         if diameter / (r_avg*3) > 4:
-            clustering_threshold = (diameter / K) * diameter / (r_avg*3)
+            auto_clustering_threshold = (diameter / K) * diameter / (r_avg*3)
         elif diameter / (r_avg*3) > 2:
-            clustering_threshold = (diameter / K) * 4
+            auto_clustering_threshold = (diameter / K) * 4
         else:
-            clustering_threshold = ((diameter / K) * diameter / (r_avg*3)) ** 2
+            auto_clustering_threshold = ((diameter / K) * diameter / (r_avg*3)) ** 2
 
         if verbose: print('[minlateration: locate_intersections] auto cluster threshold: %f'
-                          % (clustering_threshold,))
+                          % (auto_clustering_threshold,))
+
+        clustering_threshold = auto_clustering_threshold
 
     best_fun_vals_list, best_total_loss = \
         multiple_multilateration(circles_np, xlim=xlim, ylim=ylim, num_lat_clusters=num_lat_clusters,
                                  opt_trials=15, recluster_iters=5, clustering_threshold=clustering_threshold,
-                                 highlight_radius=highlight_radius, verbose=verbose)
+                                 highlight_radius=highlight_radius, plot_circles_on_iter=plot_circles_on_iter,
+                                 verbose=verbose)
 
     if verbose: print('Best total loss:', best_total_loss)
 
@@ -498,7 +514,8 @@ if __name__ == '__main__':
 
     best_fun_vals_list, best_total_loss, xlim, ylim, highlight_radius = \
         locate_intersections(circles_ref, xlim=xlim, ylim=ylim, num_lat_clusters=None,
-                             clustering_threshold=None, verbose=True)
+                             clustering_threshold=None, plot_circles_on_iter=False,
+                             verbose=True)
 
     plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim, highlight_radius=highlight_radius)
     # print(best_fun_vals_list)

@@ -80,7 +80,6 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
         # enumerate the clusters from zero to # clusters-1
         enum_clusters -= 1
         num_lat_clusters = np.max(enum_clusters) + 1
-        # print('[perform_hcluster] num_lat_clusters:', num_lat_clusters)
 
         lat_clusters = [[] for _ in range(num_lat_clusters)]
         for point, point_cluster in zip(points, enum_clusters):

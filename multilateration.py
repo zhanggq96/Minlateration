@@ -419,20 +419,26 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
 
     if clustering_threshold is None:
         K = 34
-        diameter = max(xlim[1]-xlim[0], ylim[1]-ylim[0])
+        diameter = K
         ratio_determinant = diameter / (r_avg*3)
         # threshold: determine based on diamater of area covered
         # and circle average sizes
         # (determined these by trial and error)
-        if ratio_determinant > 4:
-            auto_clustering_threshold = (diameter / K) * diameter / (r_avg*3)
-        elif ratio_determinant > 2:
-            auto_clustering_threshold = (diameter / K) * 4
+        # if ratio_determinant > 4:
+        #     auto_clustering_threshold = (diameter / K) * diameter / (r_avg*3)
+        # elif ratio_determinant > 2:
+        #     auto_clustering_threshold = (diameter / K) * 4
+        # else:
+        #     auto_clustering_threshold = ((diameter / K) * diameter / (r_avg*3)) ** 2
+
+        if ratio_determinant < 4:
+            auto_clustering_threshold = 4.488449 * (r_avg / 3.5)
         else:
-            auto_clustering_threshold = ((diameter / K) * diameter / (r_avg*3)) ** 2
+            auto_clustering_threshold = 4.488449 * (r_avg / 2.5)
 
         if verbose: print('[minlateration: locate_intersections] auto cluster threshold: %f ratio_determinant: %f'
-                          % (auto_clustering_threshold, ratio_determinant))
+                          'r_avg: %f'
+                          % (auto_clustering_threshold, ratio_determinant, r_avg))
 
         clustering_threshold = auto_clustering_threshold
 
@@ -505,12 +511,16 @@ if __name__ == '__main__':
     #     [[3, 30], 4, None],
     # ]
 
-    # plot_circles(circles_ref, None, xlim=xlim, ylim=ylim, title='plotcircles init')
+    # circles_ref = [
+    #     [[5, 5], 2, None],
+    #     [[4, 5], 3, None],
+    # ]
 
     best_fun_vals_list, best_total_loss, xlim, ylim, highlight_radius = \
         locate_intersections(circles_ref, xlim=xlim, ylim=ylim, num_lat_clusters=None,
-                             clustering_threshold=None, plot_circles_on_iter=False,
+                             clustering_threshold=None, plot_circles_on_iter=True,
                              verbose=True)
 
+    plot_circles(circles_ref, None, xlim=xlim, ylim=ylim, title='plotcircles init')
     plot_circles(circles_ref, best_fun_vals_list, xlim=xlim, ylim=ylim, highlight_radius=highlight_radius)
     # print(best_fun_vals_list)

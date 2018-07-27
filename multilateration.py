@@ -385,15 +385,22 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             # else, min_fun_vals['p'] = p_original (which have not changed)
 
     """
+
+    # In case no good optimized circle intersections was found, just take the last one
     if best_fun_vals_list is None:
         best_fun_vals_list = min_fun_vals_list
 
+    # Detect circle pairs, and if they intersect return both intersections
     for best_fun_vals in best_fun_vals_list:
         if len(best_fun_vals['circles']) == 2:
             ix0, ix1, case = get_circle_intersections(*best_fun_vals['circles'])
+            # Convert intersections into list
             if case == 'intersect':
-                # print('intersections:', ix0, ix1)
                 best_fun_vals['p'] = [ix0, ix1]
+            else:
+                best_fun_vals['p'] = [best_fun_vals['p'],]
+        else:
+            best_fun_vals['p'] = [best_fun_vals['p'],]
 
     return best_fun_vals_list, best_total_loss
 

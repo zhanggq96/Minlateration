@@ -4,8 +4,8 @@ import numpy as np
 
 def get_circle_intersections(circle0, circle1):
     # https://stackoverflow.com/questions/3349125/circle-circle-intersection-points
-    c0, r0, _ = circle0
-    c1, r1, _ = circle1
+    c0, r0, _, _ = circle0
+    c1, r1, _, _ = circle1
 
     d = np.linalg.norm(c0-c1)
 

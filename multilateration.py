@@ -18,23 +18,34 @@ except ModuleNotFoundError:
     from .circle_intersection import get_circle_intersections
 
 
-# def coord_to_np(coord):
-#     return np.array(coord[0]).T
-#
 def pair_to_np(pair):
+    """
+    Convert list of size 2 to np array
+    :param pair: list of size 2
+    :return: np array of dim one, size 2
+    """
     return np.array((pair[0], pair[1])).T
 
 def single_loss(p, x, r):
+    """
+    Loss function | ||p-x|| - r |^2 for optimization
+    :param p: Optimization variable: the desired intersections
+    :param x: Circle center
+    :param r: Circle radius
+    :return: | ||p-x|| - r |^2
+    """
     return np.abs(np.linalg.norm(p-x) - r)
 
 def single_loss_ord(p, x, r, norm_ord=2):
     return np.abs(np.linalg.norm(p-x, ord=norm_ord) - r) ** norm_ord
 
-def opt_func_dec(x_list, r_list, lat_id_list):
-    # x_list: a vector of x's
-    # x represents [x y]' : a vector of positions
-    # r_list: a vector of r's
-    # r represents r: radius of circle corresponding to position
+def opt_func_dec(x_list, r_list, *args):
+    """
+    :param x_list: a vector of x's, where x represents [x y]' : a vector of positions
+    :param r_list: a vector of r's, where r represents radius of circle corresponding to position
+    :param *args: lat_id_list and reference back to signal objects, which are unused
+    :return: loss_func_ord, loss_func, jacobian (gradient)
+    """
 
     x_list_copy = deepcopy(x_list)
     r_list_copy = deepcopy(r_list)
@@ -45,9 +56,10 @@ def opt_func_dec(x_list, r_list, lat_id_list):
         )
 
         return l
-    # https://stackoverflow.com/questions/4582521/python-creating-dynamic-functions
+
     def loss_func(p):
-        # | ||p-x}| - r |^2
+        # | ||p-x|| - r |^2
+        # Sum over loss for each element in x
         l = sum(
             (single_loss(p, x, r) for x, r in zip(x_list_copy, r_list_copy))
         )
@@ -55,6 +67,7 @@ def opt_func_dec(x_list, r_list, lat_id_list):
         return l
 
     def jacobian(p):
+        # Jacobian of the above loss function, with respect to vector p
         grad_j = np.zeros_like(p)
         for xi, ri in zip(x_list_copy, r_list_copy):
             d = np.linalg.norm(p-xi)
@@ -65,7 +78,13 @@ def opt_func_dec(x_list, r_list, lat_id_list):
 
 
 def determine_num_lat_clusters(circles, clustering_threshold=0.2):
+    """
+    Determine the number of clusters, for which standard multilateration is performed on each
 
+    :param circles: All the circles for multilateration.
+    :param clustering_threshold: Thresold for hcluster
+    :return: num_lat_clusters, enum_clusters, cluster_means, circle_point_id_list
+    """
     def perform_hcluster(points, clustering_threshold=0.2, metric='euclidean'):
         # points: column np array of [x; y] containing intersections and circle centers
         # do hcluster.
@@ -133,25 +152,25 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
             # can detect an "almost-intersection".
             if case == 'seperate':
                 # seperate: try increasing radii and detecting intersection
-                c0, r0, lat_cluster0 = circle0
-                c1, r1, lat_cluster1 = circle1
+                c0, r0, lat_cluster0, _ = circle0
+                c1, r1, lat_cluster1, _ = circle1
 
                 # expand both radii
-                circle0_expanded = [c0, 1.1 * r0, lat_cluster0]
-                circle1_expanded = [c1, 1.1 * r1, lat_cluster1]
+                circle0_expanded = [c0, 1.1 * r0, lat_cluster0, None]
+                circle1_expanded = [c1, 1.1 * r1, lat_cluster1, None]
                 ix0, ix1, case = get_circle_intersections(circle0_expanded, circle1_expanded)
                 if case == 'intersect':
                     hcluster_points.extend([ix0, ix1])
                     point_count += 2
             elif case == 'contained':
                 # seperate: try decreasing radii and detecting intersection
-                c0, r0, lat_cluster0 = circle0
-                c1, r1, lat_cluster1 = circle1
+                c0, r0, lat_cluster0, _ = circle0
+                c1, r1, lat_cluster1, _ = circle1
 
                 # reduce the outer (containing) circle's radius
                 # expand the inner (contained) circle's radius
-                circle0_reduced = [c0, (0.9 if ix0 is True else 1.1) * r0, lat_cluster0]
-                circle1_reduced = [c1, (0.9 if ix1 is True else 1.1) * r1, lat_cluster1]
+                circle0_reduced = [c0, (0.9 if ix0 is True else 1.1) * r0, lat_cluster0, None]
+                circle1_reduced = [c1, (0.9 if ix1 is True else 1.1) * r1, lat_cluster1, None]
                 ix0, ix1, case = get_circle_intersections(circle0_reduced, circle1_reduced)
                 if case == 'intersect':
                     hcluster_points.extend([ix0, ix1])
@@ -166,11 +185,17 @@ def determine_num_lat_clusters(circles, clustering_threshold=0.2):
     return num_lat_clusters, enum_clusters, cluster_means, circle_point_id_list
 
 def get_local_lims(circles):
+    """
+    Get the local limits (borders) for all the circles in the list.
+
+    :param circles: Circles for multilateration.
+    :return: (min_x, max_x), (min_y, max_y)
+    """
     max_x = -sys.maxsize
     min_x = +sys.maxsize
     max_y = -sys.maxsize
     min_y = +sys.maxsize
-    for (x, y), r, lat_cluster_id in circles:
+    for (x, y), r, lat_cluster_id, _ in circles:
         max_x = max(x + r, max_x)
         min_x = min(x - r, min_x)
         max_y = max(y + r, max_y)
@@ -182,7 +207,23 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
                              num_lat_clusters=2, opt_trials=7, recluster_iters=5,
                              clustering_threshold=4.5, highlight_radius=0.2,
                              plot_circles_on_iter=False, verbose=False):
+    """
+    Perform multilateration, not knowing in advance how many multilateration points there are.
+    Uses hcluster to initally seed cluster centers, then a k-means like method to try and find best
+    multilat points for each cluster and cluster for each multilat point.
 
+    :param circles_ref: Circles: list of circles in form [x, y], r, _
+    :param xlim: x borders
+    :param ylim: y borders
+    :param num_lat_clusters: # of lat clusters. If not specified, determined through hcluster
+    :param opt_trials: Optimization re-seeding attempts. More = higher prob. of better result
+    :param recluster_iters: k-means like iterations of reclustering for p
+    :param clustering_threshold: clustering_threshold for hcluster
+    :param highlight_radius: radius for multilateration point (not used in this, only for plots later)
+    :param plot_circles_on_iter: Generate plots on each iteration or not
+    :param verbose: verbosity
+    :return: best_fun_vals_list, best_total_loss
+    """
     circles_copy = deepcopy(circles_ref)
     num_circles = len(circles_copy)
     if verbose: print('[multiple_multilateration] circles_copy init:', circles_copy)
@@ -209,12 +250,8 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
             cluster_xlim, cluster_ylim = xlim, ylim
 
         for ot in range(opt_trials):
-            # p0 = np.array([7, 7]).T
-            # p0 = np.random.uniform(0, 30, p0_example.shape)
-
             # Generate single random initial cluster center
             # always do so for the initial try
-            # if p0_from_hcluster is not None and (ot == 0 or ot % 2 == 0):
             if p0_from_hcluster is not None and (ot == 0):
                 p0 = p0_from_hcluster
             else:
@@ -253,7 +290,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         max_delocalized_circle_index = None
         p = min_fun_val['p']
 
-        for i, (center, r, lat_cluster_id) in enumerate(circles):
+        for i, (center, r, lat_cluster_id, _) in enumerate(circles):
 
             x = center
             loss = single_loss(p, x, r)
@@ -265,7 +302,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         return max_delocalized_circle, max_delocalized_circle_index
 
     def reassign_circle_clusters(circles, min_fun_vals, epsilon=0.25):
-        for i, ((x, y), r, lat_cluster_id) in enumerate(circles):
+        for i, ((x, y), r, lat_cluster_id, _) in enumerate(circles):
             # second_min_lat_cluster unused - might be useful later for prob. epsilon swap
             min_lat_cluster, _ = argmin_p(circles[i], min_fun_vals)
             circles[i][2] = min_lat_cluster
@@ -303,7 +340,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
     for i in range(recluster_iters):
         if verbose: print('--- Iteration %d ---' % (i,))
         lat_clusters = [[] for _ in range(num_lat_clusters)]
-        for j, ((x, y), r, lat_cluster_id) in enumerate(circles_copy):
+        for j, ((x, y), r, lat_cluster_id, _) in enumerate(circles_copy):
             lat_clusters[lat_cluster_id].append(circles_copy[j])
 
         min_fun_vals_list_prev = min_fun_vals_list
@@ -391,16 +428,30 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         best_fun_vals_list = min_fun_vals_list
 
     # Detect circle pairs, and if they intersect return both intersections
+    # Format the minlateration p's to include a radius, like how circles are
     for best_fun_vals in best_fun_vals_list:
-        if len(best_fun_vals['circles']) == 2:
+        # If only one circle in cluster, or all circles share the same center
+        circle_centers, circle_radii = [], []
+        for center, r, lat_cluster_id, _ in best_fun_vals['circles']:
+            circle_centers.append(center)
+            circle_radii.append(r)
+        if len(best_fun_vals['circles']) == 1 or all(np.array_equal(center, circle_centers[0]) for center in circle_centers):
+            # Set p to be the circle center, and use a similar radius, because nothing more can be said about
+            # which direction the information came from.
+
+            # scale radius of minlat to circle radius
+            r = 0.9*np.average(circle_radii)
+            best_fun_vals['p'] = [[circle_centers[0], r],]
+        # If two circles in cluster
+        elif len(best_fun_vals['circles']) == 2:
             ix0, ix1, case = get_circle_intersections(*best_fun_vals['circles'])
             # Convert intersections into list
             if case == 'intersect':
-                best_fun_vals['p'] = [ix0, ix1]
+                best_fun_vals['p'] = [[ix0, highlight_radius], [ix1, highlight_radius]]
             else:
-                best_fun_vals['p'] = [best_fun_vals['p'],]
+                best_fun_vals['p'] = [[best_fun_vals['p'], highlight_radius],]
         else:
-            best_fun_vals['p'] = [best_fun_vals['p'],]
+            best_fun_vals['p'] = [[best_fun_vals['p'], highlight_radius],]
 
     return best_fun_vals_list, best_total_loss
 
@@ -415,7 +466,8 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
     for circle in circles_ref:
         x, y = circle[0]
         r = circle[1]
-        circles_np.append([pair_to_np([x, y]), r, None])
+        label = circle[2]
+        circles_np.append([pair_to_np([x, y]), r, None, label])
         r_avg += r
     r_avg /= len(circles_np)
     highlight_radius = r_avg / 10
@@ -428,15 +480,6 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
         K = 34
         diameter = K
         ratio_determinant = diameter / (r_avg*3)
-        # threshold: determine based on diamater of area covered
-        # and circle average sizes
-        # (determined these by trial and error)
-        # if ratio_determinant > 4:
-        #     auto_clustering_threshold = (diameter / K) * diameter / (r_avg*3)
-        # elif ratio_determinant > 2:
-        #     auto_clustering_threshold = (diameter / K) * 4
-        # else:
-        #     auto_clustering_threshold = ((diameter / K) * diameter / (r_avg*3)) ** 2
 
         if ratio_determinant < 4:
             auto_clustering_threshold = 4.488449 * (r_avg / 3.5)

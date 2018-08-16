@@ -435,7 +435,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         for center, r, lat_cluster_id, _ in best_fun_vals['circles']:
             circle_centers.append(center)
             circle_radii.append(r)
-        if len(best_fun_vals['circles']) == 1 or all(np.array_equal(center, circle_centers[0]) for center in circle_centers):
+        if len(best_fun_vals['circles']) >= 1 and all(np.array_equal(center, circle_centers[0]) for center in circle_centers):
             # Set p to be the circle center, and use a similar radius, because nothing more can be said about
             # which direction the information came from.
 

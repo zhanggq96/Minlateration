@@ -466,7 +466,10 @@ def locate_intersections(circles_ref, xlim=None, ylim=None, num_lat_clusters=Non
     for circle in circles_ref:
         x, y = circle[0]
         r = circle[1]
-        label = circle[2]
+        label = None
+        if len(circle) >= 3:
+            label = circle[2]
+
         circles_np.append([pair_to_np([x, y]), r, None, label])
         r_avg += r
     r_avg /= len(circles_np)
@@ -506,27 +509,33 @@ if __name__ == '__main__':
     xlim = None
     ylim = None
 
-    # Test case 0:
+    # # Test case 0:
+    # circles_ref = [
+    #     [[6, 27], 3],
+    #     [[3, 25], 2],
+    #     [[0, 30], 4],
+    #
+    #     [[27, 27], 3],
+    #     [[26, 27], 2.15],
+    #     [[24, 30], 4],
+    #     [[22, 22], 4],
+    #
+    #     [[28, 4], 1.5],
+    #     [[26, 3], 2],
+    #     [[25.77, 6.8], 2.7],
+    #     # [[25.77, 5.5], 2.755],
+    #
+    #     [[3, 3], 1.5],
+    #     [[4.5, 3.5], 2],
+    #
+    #     [[19, 11], 1.5],
+    #     [[20, 14], 2],
+    # ]
+
     circles_ref = [
         [[6, 27], 3],
         [[3, 25], 2],
         [[0, 30], 4],
-
-        [[27, 27], 3],
-        [[26, 27], 2.15],
-        [[24, 30], 4],
-        [[22, 22], 4],
-
-        [[28, 4], 1.5],
-        [[26, 3], 2],
-        [[25.77, 6.8], 2.7],
-        # [[25.77, 5.5], 2.755],
-
-        [[3, 3], 1.5],
-        [[4.5, 3.5], 2],
-
-        [[19, 11], 1.5],
-        [[20, 14], 2],
     ]
 
     # Test case 1:

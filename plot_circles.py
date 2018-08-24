@@ -1,4 +1,5 @@
-# https://stackoverflow.com/questions/9215658/plot-a-circle-with-pyplot
+# Important: For clearcable project, do not use this file.
+# If plots are needed, use either GeoJSON or Localization/plot_circles.py
 
 import os
 import glob

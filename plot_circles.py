@@ -18,7 +18,7 @@ def clear_dir(dir):
 def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10), 
                  savefolder=os.path.join('circles', 'results'), iteration=None,
                  clear_dir_on_new=False, title=None, highlight_radius=0.2,
-                 labels=None):
+                 labels=None, mode='single_fault_location'):
 
     if clear_dir_on_new:
         clear_dir(savefolder)
@@ -35,16 +35,17 @@ def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10),
         circle_plots.append(circle_plot)
 
     if min_fun_vals is not None:
-        for min_fun_val in min_fun_vals:
-            if isinstance(min_fun_val['p'], list):
-                for p in min_fun_val['p']:
-                    circle_plots.append(
-                        plt.Circle(p, highlight_radius, color='purple', fill=False)
-                    )
-            else:
+        if mode == 'single_fault_location':
+            for min_fun_val in min_fun_vals:
                 circle_plots.append(
                     plt.Circle(min_fun_val['p'], highlight_radius, color='blue', fill=False)
                 )
+        elif mode == 'multiple_fault_locations':
+            for min_fun_val in min_fun_vals:
+                for p, _ in min_fun_val['p+']:
+                    circle_plots.append(
+                        plt.Circle(p, highlight_radius, color='purple', fill=False)
+                    )
 
     fig, ax = plt.subplots()
     ax.set_xlim(xlim)

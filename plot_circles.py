@@ -1,6 +1,3 @@
-# Important: For clearcable project, do not use this file.
-# If plots are needed, use either GeoJSON or Localization/plot_circles.py
-
 import os
 import glob
 import matplotlib.pyplot as plt
@@ -50,6 +47,8 @@ def plot_circles(circles, min_fun_vals, xlim=(0, 10), ylim=(0, 10),
     fig, ax = plt.subplots()
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    ax.set_xlabel('x coordinate')
+    ax.set_ylabel('y coordinate')
     for circle_plot in circle_plots:
         ax.add_artist(circle_plot)
 

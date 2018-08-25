@@ -233,6 +233,7 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
     # ------------------- Begin Helper Functions -------------------
 
     def multilat(circles, use_local_lims=False, p0_from_hcluster=None):
+        # Multilateration on a single cluster
 
         loss_func_ord, loss_func, grad_j = opt_func_dec(*zip(*circles))
 
@@ -269,6 +270,8 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         return min_fun_vals
 
     def argmin_p(circle, min_fun_vals):
+        # Finds closest fault to a given circle
+
         min_val = sys.maxsize
         second_min_lat_cluster = sys.maxsize
         min_lat_cluster = None
@@ -302,6 +305,8 @@ def multiple_multilateration(circles_ref, xlim=(0,10), ylim=(0,10),
         return max_delocalized_circle, max_delocalized_circle_index
 
     def reassign_circle_clusters(circles, min_fun_vals, epsilon=0.25):
+        # Reassign each circle to the fault closest to it
+
         for i, ((x, y), r, lat_cluster_id, _) in enumerate(circles):
             # second_min_lat_cluster unused - might be useful later for prob. epsilon swap
             min_lat_cluster, _ = argmin_p(circles[i], min_fun_vals)
@@ -590,6 +595,22 @@ if __name__ == '__main__':
     # circles_ref = [
     #     [[5, 5], 2, None],
     #     [[4, 5], 3, None],
+    # ]
+
+    # One circle
+    # circles_ref = [
+    #     [[3, 3], 2, None]
+    # ]
+
+    # Two circles
+    circles_ref = [
+        [[5, 5], 2, None],
+        [[8, 5], 3, None],
+    ]
+    # circles_ref = [
+    #     [[5, 5], 2, None],
+    #     [[8, 5], 3, None],
+    #     [[4, 7.5], 1.8, None],
     # ]
 
     best_fun_vals_list, best_total_loss, xlim, ylim, highlight_radius = \

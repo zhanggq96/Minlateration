@@ -40,7 +40,7 @@ With only one station, there are infinitely many points on the circle where the 
   <img src="https://i.imgur.com/g3DI1Yg.png" width="300" />
 </p>
 
-However, even with accurate sensors, it is unlikely that three circles would intersect at exactly the same point. This means that attempts to tackle this problem analytically will almost always fail. Instead, an optimization-based approach is used[0]; it infers a target's location by finding the point which minimizes the squared euclidean distances between this point and all the circle circumferences. Let **p** denote the target's location, **x**<sub>i</sub> the ith station's location and *r* the radius of the circle. Note that **p** and **x** are 2-dimensional vectors. The function *L* which calculates the euclidean distance between the target and all *k* circles is then
+However, even with accurate sensors, it is unlikely that three circles would intersect at exactly the same point. This means that attempts to tackle this problem analytically will almost always fail. Instead, an optimization-based approach is used [0]; it infers a target's location by finding the point which minimizes the squared euclidean distances between this point and all the circle circumferences. Let **p** denote the target's location, **x**<sub>i</sub> the ith station's location and *r* the radius of the circle. Note that **p** and **x** are 2-dimensional vectors. The function *L* which calculates the euclidean distance between the target and all *k* circles is then
 
 ![][sum loss]
 
@@ -64,7 +64,7 @@ In the above diagram, we can reasonably assume that there are five targets; it i
 
 In multi-target multilateration, the locations of the five targets are randomly initialized within the plot limits and then each circle is assigned to the target which is closest to it. Then, each of each of these groups has one target and multiple circles, so it becomes possible to perform single-target multilateration on them. From this, the assignments of the target locations change. This should place the guesses of where the faults are in slightly better locations than the random initialization. At this point, we can again reassign each circle to the target location closest to it.
 
-The idea is to keep repeating this procedure many times until it converges to a local minimum. This cluster determining mechanism is essentially identical in principle to k-means clustering[1].
+The idea is to keep repeating this procedure many times until it converges to a local minimum. This cluster determining mechanism is essentially identical in principle to k-means clustering [1].
 
 <p float="left">
   <img src="https://i.imgur.com/ALQQ6Py.png" width="280" /> 

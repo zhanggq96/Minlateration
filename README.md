@@ -40,7 +40,7 @@ With only one station, there are infinitely many points on the circle where the 
   <img src="https://i.imgur.com/g3DI1Yg.png" width="300" />
 </p>
 
-However, even with accurate sensors, it is unlikely that three circles would intersect at exactly the same point. This means that attempts to tackle this problem analytically will almost always fail. Instead, an optimization-based approach is used [0]; it infers a target's location by finding the point which minimizes the squared euclidean distances between this point and all the circle circumferences. Let **p** denote the target's location, **x**<sub>i</sub> the ith station's location and *r* the radius of the circle. Note that **p** and **x** are 2-dimensional vectors. The function *L* which calculates the euclidean distance between the target and all *k* circles is then
+However, even with accurate sensors, it is unlikely that three circles would intersect at exactly the same point at which the target is located. This means that attempts to tackle this problem analytically will almost always fail. Instead, an optimization-based approach is used [0]; it infers a target's location by finding the point which minimizes the squared euclidean distances between this point and all the circle circumferences. Let **p** denote the target's location, **x**<sub>i</sub> the ith station's location and *r* the radius of the circle. Note that **p** and **x** are 2-dimensional vectors. The function *L* which calculates the euclidean distance between the target and all *k* circles is then
 
 ![][sum loss]
 

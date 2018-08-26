@@ -48,7 +48,7 @@ The optimal value of **p**, **p**<sup>*</sup> is then found as
 
 ![][argmin p]
 
-It is worth noting that the optimization method used (scipy.optimize: SQLSP) requires a Jacobian (gradient) function. It can be shown that that gradient for *L* is given as
+It is worth noting that the optimization method used (scipy.optimize: SQLSP) requires a Jacobian (gradient) function. It can be shown that that gradient for *L* is
 
 ![][gradient]
 
@@ -74,7 +74,7 @@ The idea is to keep repeating this procedure many times until it converges to a 
 
 ## Multi-target multilateration of an unknown number of targets > 1
 
-The final challenge is to be able to perform multilateration without knowing how many targets there are beforehand. The number of targets can be estimated by finding all the centers of the circles and intersections on pairs of circles, then performing hierarchical clustering (scipy.cluster.heirarchica) on these and counting the number of clusters hierarchical returns. Reasonable thresholds for heirarchicawere experimentally determined based off the average radii of circles in the input.
+The final challenge is to be able to perform multilateration without knowing how many targets there are beforehand. The number of targets can be estimated by finding all the centers of the circles and intersections on pairs of circles, then performing hierarchical clustering (scipy.cluster.heirarchical) on these and counting the number of clusters hierarchical returns. Reasonable thresholds for heirarchicawere experimentally determined based off the average radii of circles in the input.
 
 In fact, if the target of each circle is initialized based off of the result from hierarchical clustering as well, this can make for a better initial guess than initializing them randomly as is what is done in Multi-target multilateration of a fixed number of targets.
 

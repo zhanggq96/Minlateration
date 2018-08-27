@@ -48,7 +48,7 @@ The optimal value of **p**, **p**<sup>*</sup> is then found as
 
 ![][argmin p]
 
-This problem is quadratic but not convex. It is also worth noting that the optimization method used (scipy.optimize: SQLSP) requires a Jacobian (gradient) function. It can be shown that that gradient for *L* is
+This problem is not convex (and has no quadratic form as far as I can tell). It is also worth noting that the optimization method used (scipy.optimize: SQLSP) requires a Jacobian (gradient) function. It can be shown that that gradient for *L* is
 
 ![][gradient]
 
@@ -60,7 +60,7 @@ Now the method above is extended to the case where multiple stations can be trac
 
 ![Five targets][five circles]
 
-In the above diagram, we can reasonably assume that there are five targets; it is known that the five targets are somewhere in there, and their locations must all be found. A subproblem of this is to determine which circles (stations) are sharing the same target (this sounds similar to a clustering problem!) - each circle is associated with one target, and each target can have multiple circles associated with it.
+In the above diagram, we can reasonably assume that there are five targets; assume the algorithm also has some way of knowing that there are five targets are somewhere in there, and their locations must all be found. A subproblem of this is to determine which circles (stations) are sharing the same target (this sounds similar to a clustering problem!) - each circle is associated with one target, and each target can have multiple circles associated with it.
 
 In multi-target multilateration, the locations of the five targets are randomly initialized within the plot limits and then each circle is assigned to the target which is closest to it. Then, each of each of these groups has one target and multiple circles, so it becomes possible to perform single-target multilateration on them. From this, the assignments of the target locations change. This should place the guesses of where the faults are in slightly better locations than the random initialization. At this point, we can again reassign each circle to the target location closest to it.
 
